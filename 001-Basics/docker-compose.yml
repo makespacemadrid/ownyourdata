@@ -1,0 +1,91 @@
+version: '3.3'
+services:
+
+# DDNS updater:
+  ddns:
+    image: qmcgaw/ddns-updater
+    networks:
+      - proxy
+    volumes:
+      - ./data/ddns:/updater/data
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Madrid
+
+#Proxy manager database
+  proxy-database:
+    image: mariadb:lts
+    restart: unless-stopped
+    networks:
+      - proxy
+    environment:
+      - MYSQL_ROOT_PASSWORD=changeme
+      - MYSQL_DATABASE=changeme
+      - MYSQL_USER=changeme
+      - MYSQL_PASSWORD=changeme
+      - MARIADB_AUTO_UPGRADE=1
+    volumes:
+      - ./data/proxy_db:/var/lib/mysql
+
+#Proxy reverso
+  proxy:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: always
+    ports:
+      - 80:80
+      - 81:81
+      - 443:443
+    networks:
+      - proxy
+    environment:
+      - DB_MYSQL_HOST=changeme
+      - DB_MYSQL_PORT=3306
+      - DB_MYSQL_USER=changeme
+      - DB_MYSQL_PASSWORD=changeme
+      - DB_MYSQL_NAME=changeme
+      #- DB_SQLITE_FILE: "/data/database.sqlite"
+      - DISABLE_IPV6=true
+      - TZ=Europe/Madrid
+    volumes:
+      - ./data/proxy:/data
+      - ./data/letsencrypt:/etc/letsencrypt
+    depends_on:
+      - ddns
+      - proxy-database
+
+#goacess
+  goaccess:
+    image: xavierh/goaccess-for-nginxproxymanager:latest
+    container_name: goaccess
+    restart: always
+    environment:
+        - TZ=Europe/Madrid
+        - SKIP_ARCHIVED_LOGS=False #optional
+#        - DEBUG=False #optional
+#        - BASIC_AUTH=False #optional
+#        - BASIC_AUTH_USERNAME=user #optional
+#        - BASIC_AUTH_PASSWORD=pass #optional
+#        - EXCLUDE_IPS=127.0.0.1 #optional - comma delimited list
+#        - LOG_TYPE=NPM #optional - more information below
+    ports:
+        - '7880:7880'
+    networks:
+      - proxy
+    volumes:
+        - ./data/proxy/logs:/opt/log
+
+  nginx-test:
+    image: nginx:latest
+    container_name: nginx-test
+    restart: always
+    ports:
+      - 8080:80
+    volumes:
+      - ./data/nginx:/usr/share/nginx/html
+#      - ./data/spaceapi/nginx.conf:/etc/nginx/nginx.conf:ro
+
+    networks:
+      - proxy
+
+networks:
+  proxy:
