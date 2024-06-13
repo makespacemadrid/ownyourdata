@@ -1,0 +1,31 @@
+services:
+  db:
+    image: mariadb:lts
+    volumes:
+      - ./data:/var/lib/mysql
+    networks:
+      - proxy
+    environment:
+      - MYSQL_ROOT_PASSWORD=secret
+      - MYSQL_DATABASE=wordpress
+      - MYSQL_USER=manager
+      - MYSQL_PASSWORD=secret
+  web:
+    image: wordpress:latest
+    depends_on:
+      - db
+    volumes:
+      - ./target:/var/www/html
+    networks:
+      - proxy
+    environment:
+      - WORDPRESS_DB_USER=manager
+      - WORDPRESS_DB_PASSWORD=secret
+      - WORDPRESS_DB_HOST=db
+      - WORDPRESS_DB_NAME=wordpress
+    ports:
+      - 8080:80
+
+networks:
+  proxy:
+    external: true
